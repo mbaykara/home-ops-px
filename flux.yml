@@ -1,0 +1,23 @@
+apiVersion: fluxcd.controlplane.io/v1
+kind: FluxInstance
+metadata:
+  name: flux
+  namespace: flux-system
+spec:
+  distribution:
+    version: "2.7.x"
+    registry: "ghcr.io/fluxcd"
+  components:
+    - source-controller
+    - kustomize-controller
+    - helm-controller
+    - notification-controller
+    - image-reflector-controller
+    - image-automation-controller
+  sync:
+    kind: GitRepository
+    provider: generic
+    url: "https://github.com/mbaykara/home-ops-px.git"
+    ref: "refs/heads/main"
+    path: "clusters/home-ops-px"
+    pullSecret: "flux-system"
