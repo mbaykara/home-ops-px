@@ -13,14 +13,6 @@ terraform {
       version = "~> 2.4"
     }
   }
-
-  # Optional: Use Terraform Cloud or S3 for remote state
-  # Uncomment and configure if you want to share state with CI
-  # backend "s3" {
-  #   bucket = "my-terraform-state"
-  #   key    = "homelab/terraform.tfstate"
-  #   region = "us-east-1"
-  # }
 }
 
 provider "proxmox" {
@@ -154,14 +146,18 @@ data "talos_machine_configuration" "controlplane" {
       machine = {
         install = {
           disk = "/dev/vda"
+        },
+        kubelet = {
+          extraArgs = {
+            rotate-server-certificates = "true"
+          }
         }
       }
       cluster = {
-        network = {
-          cni = {
-            name = "flannel"
-          }
-        }
+        extraManifests = [
+          "https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/main/deploy/standalone-install.yaml",
+          "https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml"
+        ]
       }
     })
   ]
@@ -235,42 +231,4 @@ resource "local_file" "talosconfig" {
   content         = data.talos_client_configuration.this.talos_config
   filename        = "${path.module}/generated/talosconfig"
   file_permission = "0600"
-}
-
-# ============================================================================
-# OUTPUTS
-# ============================================================================
-
-output "talosconfig" {
-  value     = data.talos_client_configuration.this.talos_config
-  sensitive = true
-}
-
-output "kubeconfig" {
-  value     = talos_cluster_kubeconfig.this.kubeconfig_raw
-  sensitive = true
-}
-
-output "control_plane_ip" {
-  value = local.cp_ip
-}
-
-output "worker_ip" {
-  value = local.worker_ip
-}
-
-output "cluster_ready" {
-  value       = "Cluster bootstrapped! Check status with: kubectl get nodes"
-  description = "Confirmation that the cluster has been bootstrapped"
-  depends_on  = [talos_machine_bootstrap.this]
-}
-
-output "kubectl_command" {
-  value = "export KUBECONFIG=${abspath(local_file.kubeconfig_early.filename)} && kubectl get nodes"
-  description = "Command to access your Kubernetes cluster"
-}
-
-output "talosctl_command" {
-  value = "export TALOSCONFIG=${abspath(local_file.talosconfig.filename)} && talosctl --nodes ${local.cp_ip} health"
-  description = "Command to access Talos cluster management"
 }
