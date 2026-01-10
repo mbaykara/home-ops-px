@@ -34,9 +34,9 @@ jobs:
       - name: Create terraform.tfvars
         run: |
           cat > terraform.tfvars <<EOF
-          proxmox_endpoint = "${{ secrets.TF_VAR_proxmox_endpoint }}"
-          proxmox_username = "${{ secrets.TF_VAR_proxmox_username }}"
-          proxmox_password = "${{ secrets.TF_VAR_proxmox_password }}"
+          proxmox_endpoint = "${{ secrets.TF_VAR_PROXMOX_ENDPOINT }}"
+          proxmox_username = "${{ secrets.TF_VAR_PROXMOX_USERNAME }}"
+          proxmox_password = "${{ secrets.TF_VAR_PROXMOX_PASSWORD }}"
           proxmox_insecure = true
           proxmox_content_type = "iso"
           proxmox_datastore_id = "local"
