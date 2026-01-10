@@ -41,8 +41,17 @@ jobs:
           proxmox_username = "${{ secrets.TF_VAR_PROXMOX_USERNAME }}"
           proxmox_password = "${{ secrets.TF_VAR_PROXMOX_PASSWORD }}"
           proxmox_insecure = true
+          proxmox_content_type = "iso"
+          proxmox_datastore_id = "local"
           proxmox_node_name = "pve"
-          # ... rest of your vars
+          proxmox_vm_id = 800
+          proxmox_vm_name = "talos-cp-01"
+          proxmox_cpu_cores = 2
+          proxmox_cpu_type = "host"
+          proxmox_disk_file_format = "raw"
+          proxmox_disk_interface = "virtio0"
+          proxmox_disk_size = 20
+          proxmox_network_bridge = "vmbr0"
           EOF
 
       - name: Terraform Init
