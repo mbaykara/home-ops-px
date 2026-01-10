@@ -71,3 +71,4 @@ variable "proxmox_cpu_cores" {
   type = number
   description = "The number of cores of the CPU of the Proxmox VE API"
 }
+

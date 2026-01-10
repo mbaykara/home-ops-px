@@ -1,14 +1,26 @@
 terraform {
   required_providers {
     proxmox = {
-      source = "bpg/proxmox"
-      version = "0.91.0" 
+      source  = "bpg/proxmox"
+      version = "0.91.0"
     }
     talos = {
-      source = "siderolabs/talos"
+      source  = "siderolabs/talos"
       version = "0.10.0"
     }
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.4"
+    }
   }
+
+  # Optional: Use Terraform Cloud or S3 for remote state
+  # Uncomment and configure if you want to share state with CI
+  # backend "s3" {
+  #   bucket = "my-terraform-state"
+  #   key    = "homelab/terraform.tfstate"
+  #   region = "us-east-1"
+  # }
 }
 
 provider "proxmox" {
@@ -20,7 +32,6 @@ provider "proxmox" {
 
 
 provider "talos" {}
-
 
 resource "talos_image_factory_schematic" "this" {
   schematic = yamlencode(
@@ -38,17 +49,17 @@ resource "talos_image_factory_schematic" "this" {
 }
 
 resource "proxmox_virtual_environment_download_file" "talos_iso" {
-  content_type = var.proxmox_content_type
-  datastore_id = var.proxmox_datastore_id
-  node_name    = var.proxmox_node_name
+  content_type        = var.proxmox_content_type
+  datastore_id        = var.proxmox_datastore_id
+  node_name           = var.proxmox_node_name
+  overwrite_unmanaged = true
 
   url = "https://factory.talos.dev/image/${talos_image_factory_schematic.this.id}/v1.12.1/metal-amd64.iso"
-  
+
   # Accessing the "schematic_id" key from the JSON
   file_name = "talos-${talos_image_factory_schematic.this.id}.iso"
 }
 
-# 3. Create the VM using that ISO
 resource "proxmox_virtual_environment_vm" "talos_cp" {
   name      = var.proxmox_vm_name
   node_name = "pve"
@@ -81,13 +92,8 @@ resource "proxmox_virtual_environment_vm" "talos_cp" {
   network_device {
     bridge = var.proxmox_network_bridge
   }
-  initialization {
-    ip_config {
-      ipv4 {
-        address = "dhcp"
-      }
-    }
-  }
+
+  started = true
 }
 
 resource "proxmox_virtual_environment_vm" "talos_worker" {
@@ -122,18 +128,18 @@ resource "proxmox_virtual_environment_vm" "talos_worker" {
 
 locals {
   # Logic to extract the first non-loopback IP for Control Plane
-  cp_ip = [
+  cp_ip = try([
     for ips in proxmox_virtual_environment_vm.talos_cp.ipv4_addresses :
     [for ip in ips : ip if ip != "127.0.0.1"][0]
     if length([for ip in ips : ip if ip != "127.0.0.1"]) > 0
-  ][0]
+  ][0], "0.0.0.0")
 
   # Logic to extract the first non-loopback IP for Worker
-  worker_ip = [
+  worker_ip = try([
     for ips in proxmox_virtual_environment_vm.talos_worker.ipv4_addresses :
     [for ip in ips : ip if ip != "127.0.0.1"][0]
     if length([for ip in ips : ip if ip != "127.0.0.1"]) > 0
-  ][0]
+  ][0], "0.0.0.0")
 }
 resource "talos_machine_secrets" "this" {}
 
@@ -142,6 +148,23 @@ data "talos_machine_configuration" "controlplane" {
   machine_type     = "controlplane"
   cluster_endpoint = "https://${local.cp_ip}:6443"
   machine_secrets  = talos_machine_secrets.this.machine_secrets
+
+  config_patches = [
+    yamlencode({
+      machine = {
+        install = {
+          disk = "/dev/vda"
+        }
+      }
+      cluster = {
+        network = {
+          cni = {
+            name = "flannel"
+          }
+        }
+      }
+    })
+  ]
 }
 
 data "talos_machine_configuration" "worker" {
@@ -149,6 +172,16 @@ data "talos_machine_configuration" "worker" {
   machine_type     = "worker"
   cluster_endpoint = "https://${local.cp_ip}:6443"
   machine_secrets  = talos_machine_secrets.this.machine_secrets
+
+  config_patches = [
+    yamlencode({
+      machine = {
+        install = {
+          disk = "/dev/vda"
+        }
+      }
+    })
+  ]
 }
 
 data "talos_client_configuration" "this" {
@@ -171,9 +204,12 @@ resource "talos_machine_configuration_apply" "worker" {
   node                        = local.worker_ip
 }
 
-# --- Bootstrap Cluster (CP Only) ---
+# --- Bootstrap Cluster FIRST ---
 resource "talos_machine_bootstrap" "this" {
-  depends_on           = [talos_machine_configuration_apply.controlplane]
+  depends_on = [
+    talos_machine_configuration_apply.controlplane,
+    talos_machine_configuration_apply.worker
+  ]
   client_configuration = talos_machine_secrets.this.client_configuration
   node                 = local.cp_ip
 }
@@ -183,6 +219,22 @@ resource "talos_cluster_kubeconfig" "this" {
   depends_on           = [talos_machine_bootstrap.this]
   client_configuration = talos_machine_secrets.this.client_configuration
   node                 = local.cp_ip
+}
+
+# --- Save Kubeconfig ---
+resource "local_file" "kubeconfig_early" {
+  depends_on      = [talos_cluster_kubeconfig.this]
+  content         = talos_cluster_kubeconfig.this.kubeconfig_raw
+  filename        = "${path.module}/generated/kubeconfig"
+  file_permission = "0600"
+}
+
+# --- Save Talosconfig Locally ---
+resource "local_file" "talosconfig" {
+  depends_on      = [talos_machine_bootstrap.this]
+  content         = data.talos_client_configuration.this.talos_config
+  filename        = "${path.module}/generated/talosconfig"
+  file_permission = "0600"
 }
 
 # ============================================================================
@@ -205,4 +257,20 @@ output "control_plane_ip" {
 
 output "worker_ip" {
   value = local.worker_ip
+}
+
+output "cluster_ready" {
+  value       = "Cluster bootstrapped! Check status with: kubectl get nodes"
+  description = "Confirmation that the cluster has been bootstrapped"
+  depends_on  = [talos_machine_bootstrap.this]
+}
+
+output "kubectl_command" {
+  value = "export KUBECONFIG=${abspath(local_file.kubeconfig_early.filename)} && kubectl get nodes"
+  description = "Command to access your Kubernetes cluster"
+}
+
+output "talosctl_command" {
+  value = "export TALOSCONFIG=${abspath(local_file.talosconfig.filename)} && talosctl --nodes ${local.cp_ip} health"
+  description = "Command to access Talos cluster management"
 }

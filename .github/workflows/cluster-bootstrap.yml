@@ -1,0 +1,122 @@
+name: Bootstrap Talos Cluster
+
+on:
+  workflow_dispatch:  # Manual trigger only for safety
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        type: choice
+        options:
+          - create-cluster
+          - destroy-cluster
+
+jobs:
+  terraform:
+    name: Terraform - Manage Cluster
+    runs-on: self-hosted  # Use self-hosted runner on your network
+    if: inputs.action == 'create-cluster' || inputs.action == 'destroy-cluster'
+
+    defaults:
+      run:
+        working-directory: terraform
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.0
+          terraform_wrapper: false  # Important for output parsing
+
+      - name: Create terraform.tfvars
+        run: |
+          cat > terraform.tfvars <<EOF
+          proxmox_endpoint = "${{ secrets.TF_VAR_proxmox_endpoint }}"
+          proxmox_username = "${{ secrets.TF_VAR_proxmox_username }}"
+          proxmox_password = "${{ secrets.TF_VAR_proxmox_password }}"
+          proxmox_insecure = true
+          proxmox_content_type = "iso"
+          proxmox_datastore_id = "local"
+          proxmox_node_name = "pve"
+          proxmox_vm_id = 800
+          proxmox_vm_name = "talos-cp-01"
+          proxmox_cpu_cores = 2
+          proxmox_cpu_type = "host"
+          proxmox_disk_file_format = "raw"
+          proxmox_disk_interface = "virtio0"
+          proxmox_disk_size = 20
+          proxmox_network_bridge = "vmbr0"
+          EOF
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan
+        if: inputs.action == 'create-cluster'
+        run: terraform plan -out=tfplan
+
+      - name: Terraform Apply
+        if: inputs.action == 'create-cluster'
+        run: terraform apply -auto-approve tfplan
+
+      - name: Terraform Destroy
+        if: inputs.action == 'destroy-cluster'
+        run: terraform destroy -auto-approve
+
+      - name: Extract Credentials
+        if: inputs.action == 'create-cluster'
+        id: creds
+        run: |
+          # Get credentials from terraform outputs
+          KUBECONFIG_B64=$(terraform output -raw kubeconfig | base64 -w 0)
+          TALOSCONFIG_B64=$(terraform output -raw talosconfig | base64 -w 0)
+          CP_IP=$(terraform output -raw control_plane_ip)
+          WORKER_IP=$(terraform output -raw worker_ip)
+
+          # Output for next steps
+          echo "kubeconfig_b64=$KUBECONFIG_B64" >> $GITHUB_OUTPUT
+          echo "talosconfig_b64=$TALOSCONFIG_B64" >> $GITHUB_OUTPUT
+          echo "control_plane_ip=$CP_IP" >> $GITHUB_OUTPUT
+          echo "worker_ip=$WORKER_IP" >> $GITHUB_OUTPUT
+
+      - name: Update GitHub Secrets with Credentials
+        if: inputs.action == 'create-cluster'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Store credentials as repository secrets
+          gh secret set KUBE_CONFIG --body "${{ steps.creds.outputs.kubeconfig_b64 }}"
+          gh secret set TALOS_CONFIG --body "${{ steps.creds.outputs.talosconfig_b64 }}"
+          gh secret set CONTROL_PLANE_IP --body "${{ steps.creds.outputs.control_plane_ip }}"
+          gh secret set WORKER_IP --body "${{ steps.creds.outputs.worker_ip }}"
+
+          echo "✅ Credentials stored in GitHub Secrets"
+
+      - name: Summary
+        if: inputs.action == 'create-cluster'
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY <<EOF
+          ## 🎉 Talos Kubernetes Cluster Created!
+
+          **Control Plane IP:** ${{ steps.creds.outputs.control_plane_ip }}
+          **Worker IP:** ${{ steps.creds.outputs.worker_ip }}
+
+          ### Verify Cluster
+
+          \`\`\`bash
+          export KUBECONFIG=./terraform/generated/kubeconfig
+          kubectl get nodes
+          kubectl get pods -A
+          \`\`\`
+
+          ### Credentials
+
+          Stored in GitHub Secrets:
+          - \`KUBE_CONFIG\` - Base64 encoded kubeconfig
+          - \`TALOS_CONFIG\` - Base64 encoded talosconfig
+          - \`CONTROL_PLANE_IP\` - ${{ steps.creds.outputs.control_plane_ip }}
+          - \`WORKER_IP\` - ${{ steps.creds.outputs.worker_ip }}
+          EOF
