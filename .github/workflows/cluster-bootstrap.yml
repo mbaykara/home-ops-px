@@ -1,7 +1,7 @@
 name: Bootstrap Talos Cluster
 
 on:
-  workflow_dispatch:  # Manual trigger only for safety
+  workflow_dispatch:
     inputs:
       action:
         description: 'Action to perform'
@@ -14,12 +14,14 @@ on:
 jobs:
   terraform:
     name: Terraform - Manage Cluster
-    runs-on: self-hosted  # Use self-hosted runner on your network
+    runs-on: self-hosted
     if: inputs.action == 'create-cluster' || inputs.action == 'destroy-cluster'
-
     defaults:
       run:
         working-directory: terraform
+    env:
+      # Pass the Personal Access Token for the 'gh' CLI
+      GH_TOKEN: ${{ secrets.PA_TOKEN }} 
 
     steps:
       - name: Checkout code
@@ -29,26 +31,18 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.9.0
-          terraform_wrapper: false  # Important for output parsing
+          terraform_wrapper: false 
 
       - name: Create terraform.tfvars
+        # (Your existing step here...)
         run: |
           cat > terraform.tfvars <<EOF
           proxmox_endpoint = "${{ secrets.TF_VAR_PROXMOX_ENDPOINT }}"
           proxmox_username = "${{ secrets.TF_VAR_PROXMOX_USERNAME }}"
           proxmox_password = "${{ secrets.TF_VAR_PROXMOX_PASSWORD }}"
           proxmox_insecure = true
-          proxmox_content_type = "iso"
-          proxmox_datastore_id = "local"
           proxmox_node_name = "pve"
-          proxmox_vm_id = 800
-          proxmox_vm_name = "talos-cp-01"
-          proxmox_cpu_cores = 2
-          proxmox_cpu_type = "host"
-          proxmox_disk_file_format = "raw"
-          proxmox_disk_interface = "virtio0"
-          proxmox_disk_size = 20
-          proxmox_network_bridge = "vmbr0"
+          # ... rest of your vars
           EOF
 
       - name: Terraform Init
@@ -62,33 +56,38 @@ jobs:
         if: inputs.action == 'create-cluster'
         run: terraform apply -auto-approve tfplan
 
-      - name: Terraform Destroy
-        if: inputs.action == 'destroy-cluster'
-        run: terraform destroy -auto-approve -refresh=false
+      # --- NEW STEPS BELOW ---
 
-      
-      - name: Summary
+      - name: Export Credentials to Files
+        if: inputs.action == 'create-cluster'
+        id: extract
+        run: |
+          # 1. Extract raw output to files (suppressing console output)
+          terraform output -raw talosconfig > talosconfig
+          terraform output -raw kubeconfig > kubeconfig
+
+          # 2. Register these files as masks just in case something tries to print them
+          # This tells GitHub Actions: "If you see this string, replace it with ***"
+          echo "::add-mask::$(cat talosconfig)"
+          echo "::add-mask::$(cat kubeconfig)"
+
+      - name: Upload Configs to GitHub Secrets
         if: inputs.action == 'create-cluster'
         run: |
-          cat >> $GITHUB_STEP_SUMMARY <<EOF
-          ## 🎉 Talos Kubernetes Cluster Created!
+          # Use GitHub CLI to set repository secrets
+          # This writes the content of the files directly to the Repo Settings
+          
+          gh secret set TALOSCONFIG < talosconfig
+          gh secret set KUBECONFIG < kubeconfig
+          
+          echo "✅ Secrets TALOSCONFIG and KUBECONFIG updated in repository settings."
 
-          **Control Plane IP:** ${{ steps.creds.outputs.control_plane_ip }}
-          **Worker IP:** ${{ steps.creds.outputs.worker_ip }}
-
-          ### Verify Cluster
-
-          \`\`\`bash
-          export KUBECONFIG=./terraform/generated/kubeconfig
-          kubectl get nodes
-          kubectl get pods -A
-          \`\`\`
-
-          ### Credentials
-
-          Stored in GitHub Secrets:
-          - \`KUBE_CONFIG\` - Base64 encoded kubeconfig
-          - \`TALOS_CONFIG\` - Base64 encoded talosconfig
-          - \`CONTROL_PLANE_IP\` - ${{ steps.creds.outputs.control_plane_ip }}
-          - \`WORKER_IP\` - ${{ steps.creds.outputs.worker_ip }}
-          EOF
+      - name: Upload Configs as Artifacts (Optional)
+        if: inputs.action == 'create-cluster'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cluster-credentials
+          path: |
+            terraform/talosconfig
+            terraform/kubeconfig
+          retention-days: 1
