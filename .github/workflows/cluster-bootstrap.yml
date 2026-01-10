@@ -64,37 +64,9 @@ jobs:
 
       - name: Terraform Destroy
         if: inputs.action == 'destroy-cluster'
-        run: terraform destroy -auto-approve
+        run: terraform destroy -auto-approve -refresh=false
 
-      - name: Extract Credentials
-        if: inputs.action == 'create-cluster'
-        id: creds
-        run: |
-          # Get credentials from terraform outputs
-          KUBECONFIG_B64=$(terraform output -raw kubeconfig | base64 -w 0)
-          TALOSCONFIG_B64=$(terraform output -raw talosconfig | base64 -w 0)
-          CP_IP=$(terraform output -raw control_plane_ip)
-          WORKER_IP=$(terraform output -raw worker_ip)
-
-          # Output for next steps
-          echo "kubeconfig_b64=$KUBECONFIG_B64" >> $GITHUB_OUTPUT
-          echo "talosconfig_b64=$TALOSCONFIG_B64" >> $GITHUB_OUTPUT
-          echo "control_plane_ip=$CP_IP" >> $GITHUB_OUTPUT
-          echo "worker_ip=$WORKER_IP" >> $GITHUB_OUTPUT
-
-      - name: Update GitHub Secrets with Credentials
-        if: inputs.action == 'create-cluster'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Store credentials as repository secrets
-          gh secret set KUBE_CONFIG --body "${{ steps.creds.outputs.kubeconfig_b64 }}"
-          gh secret set TALOS_CONFIG --body "${{ steps.creds.outputs.talosconfig_b64 }}"
-          gh secret set CONTROL_PLANE_IP --body "${{ steps.creds.outputs.control_plane_ip }}"
-          gh secret set WORKER_IP --body "${{ steps.creds.outputs.worker_ip }}"
-
-          echo "✅ Credentials stored in GitHub Secrets"
-
+      
       - name: Summary
         if: inputs.action == 'create-cluster'
         run: |
