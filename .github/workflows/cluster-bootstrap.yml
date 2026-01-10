@@ -69,38 +69,3 @@ jobs:
         if: inputs.action == 'destroy-cluster'
         run: terraform destroy -auto-approve -refresh=false
 
-      # --- NEW STEPS BELOW ---
-
-      - name: Export Credentials to Files
-        if: inputs.action == 'create-cluster'
-        id: extract
-        run: |
-          # 1. Extract raw output to files (suppressing console output)
-          terraform output -raw talosconfig > talosconfig
-          terraform output -raw kubeconfig > kubeconfig
-
-          # 2. Register these files as masks just in case something tries to print them
-          # This tells GitHub Actions: "If you see this string, replace it with ***"
-          echo "::add-mask::$(cat talosconfig)"
-          echo "::add-mask::$(cat kubeconfig)"
-
-      - name: Upload Configs to GitHub Secrets
-        if: inputs.action == 'create-cluster'
-        run: |
-          # Use GitHub CLI to set repository secrets
-          # This writes the content of the files directly to the Repo Settings
-          
-          gh secret set TALOSCONFIG < talosconfig
-          gh secret set KUBECONFIG < kubeconfig
-          
-          echo "✅ Secrets TALOSCONFIG and KUBECONFIG updated in repository settings."
-
-      - name: Upload Configs as Artifacts (Optional)
-        if: inputs.action == 'create-cluster'
-        uses: actions/upload-artifact@v4
-        with:
-          name: cluster-credentials
-          path: |
-            terraform/talosconfig
-            terraform/kubeconfig
-          retention-days: 1
