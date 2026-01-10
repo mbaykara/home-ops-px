@@ -65,6 +65,10 @@ jobs:
         if: inputs.action == 'create-cluster'
         run: terraform apply -auto-approve tfplan
 
+      - name: Terraform Destroy
+        if: inputs.action == 'destroy-cluster'
+        run: terraform destroy -auto-approve -refresh=false
+
       # --- NEW STEPS BELOW ---
 
       - name: Export Credentials to Files
