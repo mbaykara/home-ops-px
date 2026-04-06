@@ -20,8 +20,7 @@ jobs:
       run:
         working-directory: terraform
     env:
-      # Pass the Personal Access Token for the 'gh' CLI
-      GH_TOKEN: ${{ secrets.PA_TOKEN }} 
+      GH_TOKEN: ${{ secrets.PA_TOKEN }}
 
     steps:
       - name: Checkout code
@@ -31,27 +30,43 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.9.0
-          terraform_wrapper: false 
+          terraform_wrapper: false
 
       - name: Create terraform.tfvars
-        # (Your existing step here...)
+        env:
+          TF_VAR_PROXMOX_ENDPOINT: ${{ secrets.TF_VAR_PROXMOX_ENDPOINT }}
+          TF_VAR_PROXMOX_USERNAME: ${{ secrets.TF_VAR_PROXMOX_USERNAME }}
+          TF_VAR_PROXMOX_PASSWORD: ${{ secrets.TF_VAR_PROXMOX_PASSWORD }}
+          PA_TOKEN: ${{ secrets.PA_TOKEN }}
         run: |
           cat > terraform.tfvars <<EOF
-          proxmox_endpoint = "${{ secrets.TF_VAR_PROXMOX_ENDPOINT }}"
-          proxmox_username = "${{ secrets.TF_VAR_PROXMOX_USERNAME }}"
-          proxmox_password = "${{ secrets.TF_VAR_PROXMOX_PASSWORD }}"
+          proxmox_endpoint = "${TF_VAR_PROXMOX_ENDPOINT}"
+          proxmox_username = "${TF_VAR_PROXMOX_USERNAME}"
+          proxmox_password = "${TF_VAR_PROXMOX_PASSWORD}"
           proxmox_insecure = true
-          proxmox_content_type = "iso"
-          proxmox_datastore_id = "local"
-          proxmox_node_name = "pve"
-          proxmox_vm_id = 800
-          proxmox_vm_name = "talos-cp-01"
-          proxmox_cpu_cores = 2
-          proxmox_cpu_type = "host"
-          proxmox_disk_file_format = "raw"
-          proxmox_disk_interface = "virtio0"
-          proxmox_disk_size = 20
-          proxmox_network_bridge = "vmbr0"
+
+          cluster_name = "talos-proxmox-cluster"
+
+          control_plane_nodes = {
+            "talos-cp-01" = {
+              vm_id     = 800
+              cores     = 2
+              memory    = 4096
+              disk_size = 20
+            }
+          }
+
+          worker_nodes = {
+            "talos-worker-01" = {
+              vm_id     = 801
+              cores     = 2
+              memory    = 4096
+              disk_size = 20
+            }
+          }
+
+          flux_github_repo = "https://github.com/mbaykara/home-ops-px.git"
+          github_token     = "${PA_TOKEN}"
           EOF
 
       - name: Terraform Init
@@ -65,7 +80,16 @@ jobs:
         if: inputs.action == 'create-cluster'
         run: terraform apply -auto-approve tfplan
 
+      - name: Upload kubeconfig
+        if: inputs.action == 'create-cluster'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cluster-configs
+          path: |
+            terraform/generated/kubeconfig
+            terraform/generated/talosconfig
+          retention-days: 1
+
       - name: Terraform Destroy
         if: inputs.action == 'destroy-cluster'
-        run: terraform destroy -auto-approve -refresh=false
-
+        run: terraform destroy -auto-approve
