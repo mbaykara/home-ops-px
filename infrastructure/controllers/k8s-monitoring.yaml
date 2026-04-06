@@ -1,0 +1,131 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: grafana-k8s-monitoring
+  namespace: monitoring
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: k8s-monitoring
+      version: "3.x"
+      sourceRef:
+        kind: HelmRepository
+        name: grafana
+        namespace: flux-system
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  valuesFrom:
+    - kind: Secret
+      name: grafana-cloud-credentials
+      valuesKey: prometheus-username
+      targetPath: destinations[0].auth.username
+    - kind: Secret
+      name: grafana-cloud-credentials
+      valuesKey: prometheus-password
+      targetPath: destinations[0].auth.password
+    - kind: Secret
+      name: grafana-cloud-credentials
+      valuesKey: loki-username
+      targetPath: destinations[1].auth.username
+    - kind: Secret
+      name: grafana-cloud-credentials
+      valuesKey: loki-password
+      targetPath: destinations[1].auth.password
+    - kind: Secret
+      name: grafana-cloud-credentials
+      valuesKey: otlp-username
+      targetPath: destinations[2].auth.username
+    - kind: Secret
+      name: grafana-cloud-credentials
+      valuesKey: otlp-password
+      targetPath: destinations[2].auth.password
+  values:
+    cluster:
+      name: talos-homeops
+    destinations:
+      - name: grafana-cloud-metrics
+        type: prometheus
+        url: https://prometheus-prod-24-prod-eu-west-2.grafana.net/api/prom/push
+        auth:
+          type: basic
+      - name: grafana-cloud-logs
+        type: loki
+        url: https://logs-prod-012.grafana.net/loki/api/v1/push
+        auth:
+          type: basic
+      - name: gc-otlp-endpoint
+        type: otlp
+        url: https://otlp-gateway-prod-eu-west-2.grafana.net/otlp
+        protocol: http
+        auth:
+          type: basic
+        metrics:
+          enabled: true
+        logs:
+          enabled: true
+        traces:
+          enabled: true
+    clusterMetrics:
+      enabled: true
+      kepler:
+        enabled: true
+    clusterEvents:
+      enabled: true
+    podLogs:
+      enabled: true
+    applicationObservability:
+      enabled: true
+      receivers:
+        otlp:
+          grpc:
+            enabled: true
+            port: 4317
+          http:
+            enabled: true
+            port: 4318
+        zipkin:
+          enabled: true
+          port: 9411
+    autoInstrumentation:
+      enabled: true
+      beyla:
+        deliverTracesToApplicationObservability: false
+    integrations:
+      alloy:
+        instances:
+          - name: alloy
+            labelSelectors:
+              app.kubernetes.io/name:
+                - alloy-metrics
+                - alloy-singleton
+                - alloy-logs
+                - alloy-receiver
+    alloy-metrics:
+      enabled: true
+    alloy-singleton:
+      enabled: true
+    alloy-logs:
+      enabled: true
+    alloy-receiver:
+      enabled: true
+      alloy:
+        extraPorts:
+          - name: otlp-grpc
+            port: 4317
+            targetPort: 4317
+            protocol: TCP
+          - name: otlp-http
+            port: 4318
+            targetPort: 4318
+            protocol: TCP
+          - name: zipkin
+            port: 9411
+            targetPort: 9411
+            protocol: TCP
