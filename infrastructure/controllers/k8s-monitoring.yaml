@@ -9,7 +9,7 @@ spec:
   chart:
     spec:
       chart: k8s-monitoring
-      version: "3.x"
+      version: "4.x"
       sourceRef:
         kind: HelmRepository
         name: grafana
@@ -25,42 +25,42 @@ spec:
     - kind: Secret
       name: grafana-cloud-credentials
       valuesKey: prometheus-username
-      targetPath: destinations[0].auth.username
+      targetPath: destinations.grafana-cloud-metrics.auth.username
     - kind: Secret
       name: grafana-cloud-credentials
       valuesKey: prometheus-password
-      targetPath: destinations[0].auth.password
+      targetPath: destinations.grafana-cloud-metrics.auth.password
     - kind: Secret
       name: grafana-cloud-credentials
       valuesKey: loki-username
-      targetPath: destinations[1].auth.username
+      targetPath: destinations.grafana-cloud-logs.auth.username
     - kind: Secret
       name: grafana-cloud-credentials
       valuesKey: loki-password
-      targetPath: destinations[1].auth.password
+      targetPath: destinations.grafana-cloud-logs.auth.password
     - kind: Secret
       name: grafana-cloud-credentials
       valuesKey: otlp-username
-      targetPath: destinations[2].auth.username
+      targetPath: destinations.gc-otlp-endpoint.auth.username
     - kind: Secret
       name: grafana-cloud-credentials
       valuesKey: otlp-password
-      targetPath: destinations[2].auth.password
+      targetPath: destinations.gc-otlp-endpoint.auth.password
   values:
     cluster:
       name: talos-homeops
     destinations:
-      - name: grafana-cloud-metrics
+      grafana-cloud-metrics:
         type: prometheus
         url: https://prometheus-prod-24-prod-eu-west-2.grafana.net/api/prom/push
         auth:
           type: basic
-      - name: grafana-cloud-logs
+      grafana-cloud-logs:
         type: loki
         url: https://logs-prod-012.grafana.net/loki/api/v1/push
         auth:
           type: basic
-      - name: gc-otlp-endpoint
+      gc-otlp-endpoint:
         type: otlp
         url: https://otlp-gateway-prod-eu-west-2.grafana.net/otlp
         protocol: http
@@ -72,14 +72,54 @@ spec:
           enabled: true
         traces:
           enabled: true
+    collectors:
+      alloy-metrics:
+        presets:
+          - clustered
+          - statefulset
+      alloy-logs:
+        presets:
+          - filesystem-log-reader
+          - daemonset
+      alloy-singleton:
+        presets:
+          - singleton
+      alloy-receiver:
+        presets:
+          - deployment
+        alloy:
+          extraPorts:
+            - name: otlp-grpc
+              port: 4317
+              targetPort: 4317
+              protocol: TCP
+            - name: otlp-http
+              port: 4318
+              targetPort: 4318
+              protocol: TCP
+            - name: zipkin
+              port: 9411
+              targetPort: 9411
+              protocol: TCP
     clusterMetrics:
       enabled: true
+      collector: alloy-metrics
+    telemetryServices:
       kepler:
+        deploy: true
+      kube-state-metrics:
+        deploy: true
+    hostMetrics:
+      energyMetrics:
         enabled: true
+      enabled: true
+      collector: alloy-metrics
     clusterEvents:
       enabled: true
-    podLogs:
+      collector: alloy-singleton
+    podLogsViaLoki:
       enabled: true
+      collector: alloy-logs
     applicationObservability:
       enabled: true
       receivers:
@@ -93,10 +133,12 @@ spec:
         zipkin:
           enabled: true
           port: 9411
+      collector: alloy-receiver
     autoInstrumentation:
       enabled: true
       beyla:
         deliverTracesToApplicationObservability: false
+      collector: alloy-metrics
     integrations:
       alloy:
         instances:
@@ -107,25 +149,4 @@ spec:
                 - alloy-singleton
                 - alloy-logs
                 - alloy-receiver
-    alloy-metrics:
-      enabled: true
-    alloy-singleton:
-      enabled: true
-    alloy-logs:
-      enabled: true
-    alloy-receiver:
-      enabled: true
-      alloy:
-        extraPorts:
-          - name: otlp-grpc
-            port: 4317
-            targetPort: 4317
-            protocol: TCP
-          - name: otlp-http
-            port: 4318
-            targetPort: 4318
-            protocol: TCP
-          - name: zipkin
-            port: 9411
-            targetPort: 9411
-            protocol: TCP
+      collector: alloy-metrics
