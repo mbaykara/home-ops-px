@@ -63,6 +63,11 @@ spec:
         url: https://prometheus-prod-24-prod-eu-west-2.grafana.net/api/prom/push
         auth:
           type: basic
+      grafana-cloud-logs:
+        type: loki
+        url: https://logs-prod-012.grafana.net/loki/api/v1/push
+        auth:
+          type: basic
       gc-otlp-endpoint:
         type: otlp
         url: https://otlp-gateway-prod-eu-west-2.grafana.net/otlp
