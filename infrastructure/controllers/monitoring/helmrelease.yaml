@@ -80,35 +80,28 @@ spec:
           enabled: true
         traces:
           enabled: true
+    collectorCommon:
+      alloy:
+        image:
+          tag: v1.15.0
     collectors:
       alloy-metrics:
         presets:
           - clustered
           - statefulset
         alloy:
-          image:
-            tag: v1.15.0
           extraArgs:
             - --stability.level=public-preview
       alloy-logs:
         presets:
           - filesystem-log-reader
           - daemonset
-        alloy:
-          image:
-            tag: v1.15.0
       alloy-singleton:
         presets:
           - singleton
-        alloy:
-          image:
-            tag: v1.15.0
       alloy-receiver:
         presets:
           - deployment
-        alloy:
-          image:
-            tag: v1.15.0
         alloy:
           extraPorts:
             - name: otlp-grpc
