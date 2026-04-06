@@ -7,5 +7,6 @@ _out/
 *.tfstate.*
 *.tfstate.backup
 
-# Secrets (apply manually: kubectl apply -f infrastructure/controllers/monitoring/secret.yaml)
+# Secrets (apply manually with kubectl)
 infrastructure/controllers/monitoring/secret.yaml
+apps/postgres/secret.yaml

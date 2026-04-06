@@ -1,0 +1,24 @@
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: postgres
+  namespace: postgres
+spec:
+  instances: 1
+  primaryUpdateStrategy: unsupervised
+  storage:
+    size: 10Gi
+    storageClass: local-path
+  postgresql:
+    parameters:
+      shared_buffers: "256MB"
+      max_connections: "100"
+  monitoring:
+    enablePodMonitor: false
+  bootstrap:
+    initdb:
+      database: app
+      owner: app
+      secret:
+        name: postgres-superuser
