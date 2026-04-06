@@ -1,53 +1,35 @@
-# Homelab
+# home-ops-px
 
-Talos Linux Kubernetes cluster on Proxmox VE, fully managed with Terraform and Flux CD.
+GitOps repository for the homelab Kubernetes cluster. Managed by Flux CD.
 
-## Stack
+## Structure
 
-- **Proxmox VE** -- hypervisor
-- **Talos Linux** -- immutable Kubernetes OS
-- **Terraform** -- provisions VMs, bootstraps cluster, installs Flux
-- **Flux CD** -- GitOps continuous delivery from [home-ops-px](https://github.com/mbaykara/home-ops-px)
-
-## Usage
-
-### Via GitHub Actions
-
-Trigger the `Bootstrap Talos Cluster` workflow with `create-cluster` or `destroy-cluster`.
-
-### Locally
-
-```sh
-cd terraform
-cp terraform.tfvars.example terraform.tfvars  # fill in values
-terraform init
-terraform plan
-terraform apply
+```
+clusters/home-ops-px/       Flux entry point (Kustomization CRs)
+infrastructure/
+  crds/                     CRDs that must exist before controllers install
+  controllers/              HelmReleases for cluster tooling (cert-manager, ingress, etc.)
+  configs/                  Cluster-wide configs (ClusterIssuer, etc.)
+apps/                       Application workloads
 ```
 
-Kubeconfig and talosconfig are saved to `terraform/generated/`.
+## Dependency Chain
 
-## Required GitHub Secrets
-
-| Secret | Description |
-|---|---|
-| `TF_VAR_PROXMOX_ENDPOINT` | Proxmox API URL |
-| `TF_VAR_PROXMOX_USERNAME` | Proxmox username |
-| `TF_VAR_PROXMOX_PASSWORD` | Proxmox password |
-| `PA_TOKEN` | GitHub PAT for Flux git access |
-
-## Node Configuration
-
-Defined in `terraform.tfvars`:
-
-```hcl
-control_plane_nodes = {
-  "talos-cp-01" = { vm_id = 800, cores = 2, memory = 4096, disk_size = 20 }
-}
-
-worker_nodes = {
-  "talos-worker-01" = { vm_id = 801, cores = 2, memory = 4096, disk_size = 20 }
-}
+```
+infra-crds -> infra-controllers -> infra-configs -> apps
 ```
 
-Add entries to scale up.
+Each layer waits for the previous one to be healthy before deploying.
+Enforced via Flux Kustomization `dependsOn`.
+
+## Adding Infrastructure
+
+1. Add the HelmRepository/HelmRelease to the appropriate `infrastructure/` layer
+2. Reference it in that layer's `kustomization.yaml`
+3. Push to `main`
+
+## Adding Apps
+
+1. Create a directory under `apps/` with your manifests
+2. Add it to `apps/kustomization.yaml`
+3. Push to `main`
