@@ -9,4 +9,5 @@ _out/
 
 # Secrets (apply manually with kubectl)
 infrastructure/controllers/monitoring/secret.yaml
+infrastructure/controllers/monitoring/db-o11y-secret.yaml
 apps/postgres/secret.yaml

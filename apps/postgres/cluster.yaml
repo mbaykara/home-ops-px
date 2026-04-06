@@ -11,9 +11,12 @@ spec:
     size: 10Gi
     storageClass: local-path
   postgresql:
+    shared_preload_libraries:
+      - pg_stat_statements
     parameters:
       shared_buffers: "256MB"
       max_connections: "100"
+      pg_stat_statements.track: all
   monitoring:
     enablePodMonitor: false
   bootstrap:
@@ -22,3 +25,10 @@ spec:
       owner: app
       secret:
         name: postgres-superuser
+      postInitSQL:
+        - CREATE EXTENSION IF NOT EXISTS pg_stat_statements
+        - CREATE USER "db-o11y" WITH PASSWORD 'changeme-o11y'
+        - GRANT pg_monitor TO "db-o11y"
+        - GRANT pg_read_all_stats TO "db-o11y"
+        - GRANT USAGE ON SCHEMA public TO "db-o11y"
+        - GRANT SELECT ON ALL TABLES IN SCHEMA public TO "db-o11y"

@@ -46,6 +46,14 @@ spec:
       name: grafana-cloud-credentials
       valuesKey: otlp-password
       targetPath: destinations.gc-otlp-endpoint.auth.password
+    - kind: Secret
+      name: db-o11y-postgres
+      valuesKey: username
+      targetPath: integrations.postgresql.instances[0].exporter.dataSource.auth.username
+    - kind: Secret
+      name: db-o11y-postgres
+      valuesKey: password
+      targetPath: integrations.postgresql.instances[0].exporter.dataSource.auth.password
   values:
     cluster:
       name: talos-homeops
@@ -149,4 +157,26 @@ spec:
                 - alloy-singleton
                 - alloy-logs
                 - alloy-receiver
+      postgresql:
+        instances:
+          - name: app-db
+            jobLabel: integrations/db-o11y
+            databaseObservability:
+              enabled: true
+            exporter:
+              dataSource:
+                host: postgres-rw.postgres.svc.cluster.local
+                port: 5432
+                database: app
+                sslmode: require
+                auth: {}
+              collectors:
+                statStatements:
+                  enabled: true
+            logs:
+              enabled: true
+              labelSelectors:
+                cnpg.io/cluster: postgres
+              namespaces:
+                - postgres
       collector: alloy-metrics
