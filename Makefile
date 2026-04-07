@@ -1,4 +1,4 @@
-KUBECONFIG ?= terraform/generated/kubeconfig
+KUBECONFIG := ./terraform/generated/kubeconfig
 KUBECTL    := KUBECONFIG=$(KUBECONFIG) kubectl
 
 .PHONY: help setup secrets namespaces all
