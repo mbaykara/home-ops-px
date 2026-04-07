@@ -22,6 +22,12 @@ spec:
     remediation:
       retries: 3
   values:
+    default:
+      envOverrides:
+      - name: OTEL_COLLECTOR_NAME
+        value: grafana-k8s-monitoring-alloy-receiver.monitoring.svc.cluster.local
+      - name: OTEL_RESOURCE_ATTRIBUTES
+        value: "service.namespace=default"
     # Disable all bundled observability backends -- use existing monitoring stack
     opensearch:
       enabled: false
@@ -31,21 +37,3 @@ spec:
       enabled: false
     jaeger:
       enabled: false
-
-    # Configure the bundled collector to export to existing Alloy receiver
-    opentelemetry-collector:
-      enabled: true
-      config:
-        exporters:
-          otlp:
-            endpoint: alloy-receiver.monitoring.svc.cluster.local:4317
-            tls:
-              insecure: true
-        service:
-          pipelines:
-            traces:
-              exporters: [otlp]
-            metrics:
-              exporters: [otlp]
-            logs:
-              exporters: [otlp]
