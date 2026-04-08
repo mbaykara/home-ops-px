@@ -85,6 +85,8 @@ resource "proxmox_virtual_environment_vm" "control_plane" {
 
   agent { enabled = true }
 
+  boot_order = ["virtio0", "ide3"]
+
   cpu {
     cores = each.value.cores
     type  = "host"
@@ -119,6 +121,8 @@ resource "proxmox_virtual_environment_vm" "worker" {
   vm_id     = each.value.vm_id
 
   agent { enabled = true }
+
+  boot_order = ["virtio0", "ide3"]
 
   cpu {
     cores = each.value.cores
