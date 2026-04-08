@@ -1,7 +1,7 @@
 # --- Flux Operator (installs the CRDs and operator) ---
 
 resource "helm_release" "flux_operator" {
-  depends_on = [data.talos_cluster_health.this]
+  depends_on = [helm_release.cilium]
 
   name             = "flux-operator"
   namespace        = "flux-system"

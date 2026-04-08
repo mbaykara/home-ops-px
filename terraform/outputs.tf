@@ -22,3 +22,8 @@ output "talosconfig_path" {
   value       = local_file.talosconfig.filename
   description = "Path to the generated talosconfig"
 }
+
+output "talos_schematic_id" {
+  value       = talos_image_factory_schematic.this.id
+  description = "Talos Image Factory schematic ID (for USB boot media)"
+}

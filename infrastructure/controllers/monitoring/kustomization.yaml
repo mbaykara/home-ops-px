@@ -4,3 +4,5 @@ resources:
   - namespace.yaml
   - helm-repo.yaml
   - helmrelease.yaml
+  - secret.yaml
+  - db-o11y-secret.yaml

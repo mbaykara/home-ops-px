@@ -1,5 +1,24 @@
 resource "talos_machine_secrets" "this" {}
 
+# --- Talos Image Factory (bare-metal extensions) ---
+
+resource "talos_image_factory_schematic" "this" {
+  schematic = yamlencode({
+    customization = {
+      systemExtensions = {
+        officialExtensions = [
+          "siderolabs/intel-ucode",
+          "siderolabs/iscsi-tools",
+          "siderolabs/i915-ucode",
+          "siderolabs/mei",
+        ]
+      }
+    }
+  })
+}
+
+# --- Control Plane Machine Configuration ---
+
 data "talos_machine_configuration" "controlplane" {
   cluster_name     = var.cluster_name
   machine_type     = "controlplane"
@@ -10,16 +29,40 @@ data "talos_machine_configuration" "controlplane" {
     yamlencode({
       machine = {
         install = {
-          disk = "/dev/vda"
+          disk  = var.install_disk
+          image = "factory.talos.dev/installer/${talos_image_factory_schematic.this.id}:${var.talos_version}"
         }
         kubelet = {
           extraArgs = {
             rotate-server-certificates = "true"
           }
         }
+        network = {
+          interfaces = [
+            {
+              interface = var.network_interface
+              addresses = ["${local.cp_endpoint_ip}/24"]
+              routes = [
+                {
+                  network = "0.0.0.0/0"
+                  gateway = var.network_gateway
+                }
+              ]
+            }
+          ]
+          nameservers = [var.network_gateway, "8.8.8.8"]
+        }
       }
       cluster = {
         allowSchedulingOnControlPlanes = true
+        network = {
+          cni = {
+            name = "none"
+          }
+        }
+        proxy = {
+          disabled = true
+        }
         extraManifests = [
           "https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/main/deploy/standalone-install.yaml",
           "https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml",
@@ -28,6 +71,8 @@ data "talos_machine_configuration" "controlplane" {
     })
   ]
 }
+
+# --- Worker Machine Configuration (for future use) ---
 
 data "talos_machine_configuration" "worker" {
   cluster_name     = var.cluster_name
@@ -39,12 +84,15 @@ data "talos_machine_configuration" "worker" {
     yamlencode({
       machine = {
         install = {
-          disk = "/dev/vda"
+          disk  = var.install_disk
+          image = "factory.talos.dev/installer/${talos_image_factory_schematic.this.id}:${var.talos_version}"
         }
       }
     })
   ]
 }
+
+# --- Client Configuration ---
 
 data "talos_client_configuration" "this" {
   cluster_name         = var.cluster_name
@@ -83,23 +131,6 @@ resource "talos_cluster_kubeconfig" "this" {
   depends_on           = [talos_machine_bootstrap.this]
   client_configuration = talos_machine_secrets.this.client_configuration
   node                 = local.cp_endpoint_ip
-}
-
-# --- Health Check (gate for Flux deployment) ---
-
-data "talos_cluster_health" "this" {
-  depends_on = [
-    talos_machine_bootstrap.this,
-    talos_cluster_kubeconfig.this,
-  ]
-  client_configuration = talos_machine_secrets.this.client_configuration
-  control_plane_nodes  = values(local.cp_ips)
-  worker_nodes         = values(local.worker_ips)
-  endpoints            = values(local.cp_ips)
-
-  timeouts = {
-    read = "10m"
-  }
 }
 
 # --- Save Configs Locally ---
