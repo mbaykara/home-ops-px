@@ -5,3 +5,4 @@ resources:
   - cloudnative-pg/
   - monitoring/
   - cert-manager/
+  - otel-operator/
