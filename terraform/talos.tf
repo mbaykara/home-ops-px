@@ -35,6 +35,7 @@ data "talos_machine_configuration" "controlplane" {
         kubelet = {
           extraArgs = {
             rotate-server-certificates = "true"
+            node-labels                = "node.kubernetes.io/instance-type=m720q"
           }
         }
         network = {
