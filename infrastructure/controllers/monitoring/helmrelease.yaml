@@ -170,7 +170,7 @@ spec:
                 - k8s_namespace: opentelemetry-operator
               # Include the rest
               instrument:
-                - k8s_namespace: .
+                - k8s_namespace: "*"
             filter:
               application:
                 url.path:
