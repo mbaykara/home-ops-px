@@ -162,14 +162,14 @@ spec:
                 - application_process
             discovery:
               # Exclude system, opentelemetry-operator, and grafana-k8s-monitoring namespaces from auto-instrumentation
-              exclude_services:
+              exclude_instrument:
                 - k8s_namespace: kube-system
                 - k8s_namespace: kube-public
                 - k8s_namespace: kube-node-lease
                 - k8s_namespace: grafana-k8s-monitoring
                 - k8s_namespace: opentelemetry-operator
               # Include the rest
-              services:
+              instrument:
                 - k8s_namespace: .
             filter:
               application:
