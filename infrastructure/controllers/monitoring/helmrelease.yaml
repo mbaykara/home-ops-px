@@ -173,7 +173,7 @@ spec:
                 - k8s_namespace: .
             filter:
               application:
-                http.url.path:
+                url.path:
                   not_match: ^/(healthz|readyz|livez|health|ready|live|startup|ping|metrics|actuator|heartbeat)
             routes:
               unmatched: low-cardinality
