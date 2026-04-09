@@ -195,6 +195,7 @@ spec:
                 - alloy-singleton
                 - alloy-logs
                 - alloy-receiver
+                - alloy-profiles
       postgresql:
         instances:
           - name: app-db
@@ -217,4 +218,7 @@ spec:
                 cnpg.io/cluster: postgres
               namespaces:
                 - postgres
+      collector: alloy-metrics
+    selfReporting:
+      enabled: true
       collector: alloy-metrics
