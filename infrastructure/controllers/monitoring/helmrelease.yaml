@@ -150,6 +150,40 @@ spec:
       enabled: true
       beyla:
         deliverTracesToApplicationObservability: false
+        config:
+          data:
+            prometheus_export:
+              features:
+                - application
+                - network
+                - application_service_graph
+                - application_span
+                - application_host
+                - application_process
+            discovery:
+              # Exclude system, opentelemetry-operator, and grafana-k8s-monitoring namespaces from auto-instrumentation
+              exclude_services:
+                - k8s_namespace: kube-system
+                - k8s_namespace: kube-public
+                - k8s_namespace: kube-node-lease
+                - k8s_namespace: grafana-k8s-monitoring
+                - k8s_namespace: opentelemetry-operator
+              # Include the rest
+              services:
+                - k8s_namespace: .
+            routes:
+              unmatched: low-cardinality 
+              # Mirrors the OTLP trace span filters above for consistency in what's dropped
+              ignored_patterns:
+                - /health*
+                - /live*
+                - /readiness*
+                - /startup*
+                - /heartbeat*
+                - /ready*
+                - /ping*
+                - /actuator*
+                - /metrics*
       collector: alloy-metrics
     integrations:
       alloy:
