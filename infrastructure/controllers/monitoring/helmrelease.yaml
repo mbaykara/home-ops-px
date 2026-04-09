@@ -121,6 +121,8 @@ spec:
         deploy: true
       kube-state-metrics:
         deploy: true
+        extraArgs:
+          - --metric-labels-allowlist=nodes=[node.kubernetes.io/instance-type]
     hostMetrics:
       energyMetrics:
         enabled: true
