@@ -149,7 +149,7 @@ spec:
     autoInstrumentation:
       enabled: true
       beyla:
-        deliverTracesToApplicationObservability: false
+        deliverTracesToApplicationObservability: true
         config:
           data:
             prometheus_export:
