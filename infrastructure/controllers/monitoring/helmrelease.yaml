@@ -171,10 +171,16 @@ spec:
               # Include the rest
               services:
                 - k8s_namespace: .
+            filter:
+              application:
+                http.url.path:
+                  not_match: ^/(healthz|readyz|livez|health|ready|live|startup|ping|metrics|actuator|heartbeat)
             routes:
-              unmatched: low-cardinality 
-              # Mirrors the OTLP trace span filters above for consistency in what's dropped
+              unmatched: low-cardinality
               ignored_patterns:
+                - /healthz
+                - /readyz
+                - /livez
                 - /health*
                 - /live*
                 - /readiness*
