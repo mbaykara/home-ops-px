@@ -1,238 +1,238 @@
----
-apiVersion: helm.toolkit.fluxcd.io/v2
-kind: HelmRelease
-metadata:
-  name: grafana-k8s-monitoring
-  namespace: monitoring
-spec:
-  interval: 1h
-  chart:
-    spec:
-      chart: k8s-monitoring
-      version: "4.0.1"
-      sourceRef:
-        kind: HelmRepository
-        name: grafana
-        namespace: flux-system
-  install:
-    createNamespace: true
-    remediation:
-      retries: 3
-  upgrade:
-    remediation:
-      retries: 3
-  valuesFrom:
-    - kind: Secret
-      name: grafana-cloud-credentials
-      valuesKey: prometheus-username
-      targetPath: destinations.grafana-cloud-metrics.auth.username
-    - kind: Secret
-      name: grafana-cloud-credentials
-      valuesKey: prometheus-password
-      targetPath: destinations.grafana-cloud-metrics.auth.password
-    - kind: Secret
-      name: grafana-cloud-credentials
-      valuesKey: loki-username
-      targetPath: destinations.grafana-cloud-logs.auth.username
-    - kind: Secret
-      name: grafana-cloud-credentials
-      valuesKey: loki-password
-      targetPath: destinations.grafana-cloud-logs.auth.password
-    - kind: Secret
-      name: grafana-cloud-credentials
-      valuesKey: otlp-username
-      targetPath: destinations.gc-otlp-endpoint.auth.username
-    - kind: Secret
-      name: grafana-cloud-credentials
-      valuesKey: otlp-password
-      targetPath: destinations.gc-otlp-endpoint.auth.password
-    - kind: Secret
-      name: db-o11y-postgres
-      valuesKey: username
-      targetPath: integrations.postgresql.instances[0].exporter.dataSource.auth.username
-    - kind: Secret
-      name: db-o11y-postgres
-      valuesKey: password
-      targetPath: integrations.postgresql.instances[0].exporter.dataSource.auth.password
-  values:
-    cluster:
-      name: talos-homeops
-    destinations:
-      grafana-cloud-metrics:
-        type: prometheus
-        url: https://prometheus-prod-24-prod-eu-west-2.grafana.net/api/prom/push
-        auth:
-          type: basic
-        extraLabels:
-          team_name: backend
-      grafana-cloud-logs:
-        type: loki
-        url: https://logs-prod-012.grafana.net/loki/api/v1/push
-        auth:
-          type: basic
-        extraLabels:
-          team_name: backend
-      gc-otlp-endpoint:
-        type: otlp
-        url: https://otlp-gateway-prod-eu-west-2.grafana.net/otlp
-        protocol: http
-        auth:
-          type: basic
-        extraLabels:
-          team_name: backend
-        metrics:
-          enabled: true
-        logs:
-          enabled: true
-        traces:
-          enabled: true
-    collectorCommon:
-      alloy:
-        image:
-          tag: v1.15.0
-    collectors:
-      alloy-metrics:
-        presets:
-          - clustered
-          - statefulset
-      alloy-logs:
-        presets:
-          - filesystem-log-reader
-          - daemonset
-      alloy-singleton:
-        presets:
-          - singleton
-      alloy-receiver:
-        presets:
-          - deployment
-        alloy:
-          extraPorts:
-            - name: otlp-grpc
-              port: 4317
-              targetPort: 4317
-              protocol: TCP
-            - name: otlp-http
-              port: 4318
-              targetPort: 4318
-              protocol: TCP
-            - name: zipkin
-              port: 9411
-              targetPort: 9411
-              protocol: TCP
-    clusterMetrics:
-      enabled: true
-      collector: alloy-metrics
-    telemetryServices:
-      kepler:
-        deploy: true
-      kube-state-metrics:
-        deploy: true
-        extraArgs:
-          - --metric-labels-allowlist=nodes=[node.kubernetes.io/instance-type]
-    hostMetrics:
-      energyMetrics:
-        enabled: true
-      enabled: true
-      collector: alloy-metrics
-    clusterEvents:
-      enabled: true
-      collector: alloy-singleton
-    podLogsViaLoki:
-      enabled: true
-      collector: alloy-logs
-    applicationObservability:
-      enabled: true
-      receivers:
-        otlp:
-          grpc:
-            enabled: true
-            port: 4317
-          http:
-            enabled: true
-            port: 4318
-        zipkin:
-          enabled: true
-          port: 9411
-      collector: alloy-receiver
-    autoInstrumentation:
-      enabled: true
-      beyla:
-        deliverTracesToApplicationObservability: true
-        config:
-          data:
-            prometheus_export:
-              features:
-                - application
-                - network
-                - application_service_graph
-                - application_span
-                - application_host
-                - application_process
-            discovery:
-              # Exclude system, opentelemetry-operator, and grafana-k8s-monitoring namespaces from auto-instrumentation
-              exclude_instrument:
-                - k8s_namespace: kube-system
-                - k8s_namespace: kube-public
-                - k8s_namespace: kube-node-lease
-                - k8s_namespace: grafana-k8s-monitoring
-                - k8s_namespace: opentelemetry-operator
-              # Include the rest
-              instrument:
-                - k8s_namespace: "*"
-            filter:
-              application:
-                url.path:
-                  not_match: ^/(healthz|readyz|livez|health|ready|live|startup|ping|metrics|actuator|heartbeat)
-            routes:
-              unmatched: low-cardinality
-              ignored_patterns:
-                - /healthz
-                - /readyz
-                - /livez
-                - /health*
-                - /live*
-                - /readiness*
-                - /startup*
-                - /heartbeat*
-                - /ready*
-                - /ping*
-                - /actuator*
-                - /metrics*
-      collector: alloy-metrics
-    integrations:
-      alloy:
-        instances:
-          - name: alloy
-            labelSelectors:
-              app.kubernetes.io/name:
-                - alloy-metrics
-                - alloy-singleton
-                - alloy-logs
-                - alloy-receiver
-                - alloy-profiles
-      postgresql:
-        instances:
-          - name: app-db
-            jobLabel: integrations/db-o11y
-            databaseObservability:
-              enabled: true
-            exporter:
-              dataSource:
-                host: postgres-rw.postgres.svc.cluster.local
-                port: 5432
-                database: app
-                sslmode: require
-                auth: {}
-              collectors:
-                statStatements:
-                  enabled: true
-            logs:
-              enabled: true
-              labelSelectors:
-                cnpg.io/cluster: postgres
-              namespaces:
-                - postgres
-      collector: alloy-metrics
-    selfReporting:
-      enabled: true
-      collector: alloy-metrics
+# ---
+# apiVersion: helm.toolkit.fluxcd.io/v2
+# kind: HelmRelease
+# metadata:
+#   name: grafana-k8s-monitoring
+#   namespace: monitoring
+# spec:
+#   interval: 1h
+#   chart:
+#     spec:
+#       chart: k8s-monitoring
+#       version: "4.0.1"
+#       sourceRef:
+#         kind: HelmRepository
+#         name: grafana
+#         namespace: flux-system
+#   install:
+#     createNamespace: true
+#     remediation:
+#       retries: 3
+#   upgrade:
+#     remediation:
+#       retries: 3
+#   valuesFrom:
+#     - kind: Secret
+#       name: grafana-cloud-credentials
+#       valuesKey: prometheus-username
+#       targetPath: destinations.grafana-cloud-metrics.auth.username
+#     - kind: Secret
+#       name: grafana-cloud-credentials
+#       valuesKey: prometheus-password
+#       targetPath: destinations.grafana-cloud-metrics.auth.password
+#     - kind: Secret
+#       name: grafana-cloud-credentials
+#       valuesKey: loki-username
+#       targetPath: destinations.grafana-cloud-logs.auth.username
+#     - kind: Secret
+#       name: grafana-cloud-credentials
+#       valuesKey: loki-password
+#       targetPath: destinations.grafana-cloud-logs.auth.password
+#     - kind: Secret
+#       name: grafana-cloud-credentials
+#       valuesKey: otlp-username
+#       targetPath: destinations.gc-otlp-endpoint.auth.username
+#     - kind: Secret
+#       name: grafana-cloud-credentials
+#       valuesKey: otlp-password
+#       targetPath: destinations.gc-otlp-endpoint.auth.password
+#     - kind: Secret
+#       name: db-o11y-postgres
+#       valuesKey: username
+#       targetPath: integrations.postgresql.instances[0].exporter.dataSource.auth.username
+#     - kind: Secret
+#       name: db-o11y-postgres
+#       valuesKey: password
+#       targetPath: integrations.postgresql.instances[0].exporter.dataSource.auth.password
+#   values:
+#     cluster:
+#       name: talos-homeops
+#     destinations:
+#       grafana-cloud-metrics:
+#         type: prometheus
+#         url: https://prometheus-prod-24-prod-eu-west-2.grafana.net/api/prom/push
+#         auth:
+#           type: basic
+#         extraLabels:
+#           team_name: backend
+#       grafana-cloud-logs:
+#         type: loki
+#         url: https://logs-prod-012.grafana.net/loki/api/v1/push
+#         auth:
+#           type: basic
+#         extraLabels:
+#           team_name: backend
+#       gc-otlp-endpoint:
+#         type: otlp
+#         url: https://otlp-gateway-prod-eu-west-2.grafana.net/otlp
+#         protocol: http
+#         auth:
+#           type: basic
+#         extraLabels:
+#           team_name: backend
+#         metrics:
+#           enabled: true
+#         logs:
+#           enabled: true
+#         traces:
+#           enabled: true
+#     collectorCommon:
+#       alloy:
+#         image:
+#           tag: v1.15.0
+#     collectors:
+#       alloy-metrics:
+#         presets:
+#           - clustered
+#           - statefulset
+#       alloy-logs:
+#         presets:
+#           - filesystem-log-reader
+#           - daemonset
+#       alloy-singleton:
+#         presets:
+#           - singleton
+#       alloy-receiver:
+#         presets:
+#           - deployment
+#         alloy:
+#           extraPorts:
+#             - name: otlp-grpc
+#               port: 4317
+#               targetPort: 4317
+#               protocol: TCP
+#             - name: otlp-http
+#               port: 4318
+#               targetPort: 4318
+#               protocol: TCP
+#             - name: zipkin
+#               port: 9411
+#               targetPort: 9411
+#               protocol: TCP
+#     clusterMetrics:
+#       enabled: true
+#       collector: alloy-metrics
+#     telemetryServices:
+#       kepler:
+#         deploy: true
+#       kube-state-metrics:
+#         deploy: true
+#         extraArgs:
+#           - --metric-labels-allowlist=nodes=[node.kubernetes.io/instance-type]
+#     hostMetrics:
+#       energyMetrics:
+#         enabled: true
+#       enabled: true
+#       collector: alloy-metrics
+#     clusterEvents:
+#       enabled: true
+#       collector: alloy-singleton
+#     podLogsViaLoki:
+#       enabled: true
+#       collector: alloy-logs
+#     applicationObservability:
+#       enabled: true
+#       receivers:
+#         otlp:
+#           grpc:
+#             enabled: true
+#             port: 4317
+#           http:
+#             enabled: true
+#             port: 4318
+#         zipkin:
+#           enabled: true
+#           port: 9411
+#       collector: alloy-receiver
+#     autoInstrumentation:
+#       enabled: true
+#       beyla:
+#         deliverTracesToApplicationObservability: true
+#         config:
+#           data:
+#             prometheus_export:
+#               features:
+#                 - application
+#                 - network
+#                 - application_service_graph
+#                 - application_span
+#                 - application_host
+#                 - application_process
+#             discovery:
+#               # Exclude system, opentelemetry-operator, and grafana-k8s-monitoring namespaces from auto-instrumentation
+#               exclude_instrument:
+#                 - k8s_namespace: kube-system
+#                 - k8s_namespace: kube-public
+#                 - k8s_namespace: kube-node-lease
+#                 - k8s_namespace: grafana-k8s-monitoring
+#                 - k8s_namespace: opentelemetry-operator
+#               # Include the rest
+#               instrument:
+#                 - k8s_namespace: "*"
+#             filter:
+#               application:
+#                 url.path:
+#                   not_match: ^/(healthz|readyz|livez|health|ready|live|startup|ping|metrics|actuator|heartbeat)
+#             routes:
+#               unmatched: low-cardinality
+#               ignored_patterns:
+#                 - /healthz
+#                 - /readyz
+#                 - /livez
+#                 - /health*
+#                 - /live*
+#                 - /readiness*
+#                 - /startup*
+#                 - /heartbeat*
+#                 - /ready*
+#                 - /ping*
+#                 - /actuator*
+#                 - /metrics*
+#       collector: alloy-metrics
+#     integrations:
+#       alloy:
+#         instances:
+#           - name: alloy
+#             labelSelectors:
+#               app.kubernetes.io/name:
+#                 - alloy-metrics
+#                 - alloy-singleton
+#                 - alloy-logs
+#                 - alloy-receiver
+#                 - alloy-profiles
+#       postgresql:
+#         instances:
+#           - name: app-db
+#             jobLabel: integrations/db-o11y
+#             databaseObservability:
+#               enabled: true
+#             exporter:
+#               dataSource:
+#                 host: postgres-rw.postgres.svc.cluster.local
+#                 port: 5432
+#                 database: app
+#                 sslmode: require
+#                 auth: {}
+#               collectors:
+#                 statStatements:
+#                   enabled: true
+#             logs:
+#               enabled: true
+#               labelSelectors:
+#                 cnpg.io/cluster: postgres
+#               namespaces:
+#                 - postgres
+#       collector: alloy-metrics
+#     selfReporting:
+#       enabled: true
+#       collector: alloy-metrics
