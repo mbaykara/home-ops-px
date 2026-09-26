@@ -1,0 +1,37 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: otelcol-fritzbox
+  namespace: monitoring
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: otelcol-fritzbox
+      version: "0.2.0"
+      sourceRef:
+        kind: HelmRepository
+        name: mbaykara-charts
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    fritzbox:
+      endpoint: http://192.168.178.1:49000
+      existingSecret: fritzbox-credentials
+      metrics:
+        fritzbox.hosts.info:
+          enabled: true
+        fritzbox.hosts.active:
+          enabled: true
+    otlp:
+      endpoint: https://otlp-gateway-prod-eu-west-2.grafana.net/otlp
+      existingSecret: grafana-cloud-credentials
+      existingSecretKeys:
+        username: otlp-username
+        password: otlp-password
