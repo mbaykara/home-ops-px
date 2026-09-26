@@ -1,6 +1,13 @@
 # Continue Here
 
-## Last Session: 2026-04-08
+## Last Session: 2026-09-26
+- Re-enabled grafana-k8s-monitoring HelmRelease, chart bumped 4.0.1 -> 4.2.1
+- Removed otel-operator (no Instrumentation/Collector CRs depended on it; Flux prunes it)
+- Local fix: terraform/generated/kubeconfig had a stale Azure `monitoring` context as
+  current-context; removed it and set `admin@home-ops`. talosconfig endpoint set to
+  192.168.178.171. Context `admin@home-ops` also merged into ~/.kube/config.
+
+## Session: 2026-04-08
 
 ### What was done
 - Migrated from Proxmox VM to bare-metal Talos Linux on ThinkCentre M720q
