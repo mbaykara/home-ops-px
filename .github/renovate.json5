@@ -1,0 +1,78 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: [
+    "config:recommended",
+    ":semanticCommits",
+    ":disableRateLimiting",
+    "docker:enableMajor",
+  ],
+  dependencyDashboardTitle: "Renovate Dependency Dashboard",
+  labels: ["dependencies"],
+  ignorePaths: ["terraform/generated/**", "_out/**"],
+
+  // Flux only scans gotk-components.yaml by default; scan all manifests.
+  flux: {
+    managerFilePatterns: ["/(^|/)(apps|infrastructure|clusters)/.+\\.ya?ml$/"],
+  },
+
+  customManagers: [
+    {
+      // Annotated Terraform variable defaults:
+      //   # renovate: datasource=github-releases depName=siderolabs/talos
+      //   variable "talos_version" { ... default = "v1.12.1" ... }
+      customType: "regex",
+      description: "Annotated Terraform variable defaults",
+      managerFilePatterns: ["/\\.tf$/"],
+      matchStrings: [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)( registryUrl=(?<registryUrl>\\S+))?\\s*\\nvariable \"[^\"]+\" \\{[^}]*?default\\s*=\\s*\"(?<currentValue>[^\"]+)\"",
+      ],
+    },
+    {
+      customType: "regex",
+      description: "GitHub release assets in kustomizations",
+      managerFilePatterns: ["/(^|/)kustomization\\.ya?ml$/"],
+      matchStrings: [
+        "https://github\\.com/(?<depName>[^/]+/[^/]+)/releases/download/(?<currentValue>[^/]+)/",
+      ],
+      datasourceTemplate: "github-releases",
+    },
+    {
+      customType: "regex",
+      description: "Raw GitHub tag URLs in kustomizations",
+      managerFilePatterns: ["/(^|/)kustomization\\.ya?ml$/"],
+      matchStrings: [
+        "https://raw\\.githubusercontent\\.com/(?<depName>[^/]+/[^/]+)/(?<currentValue>v[^/]+)/",
+      ],
+      datasourceTemplate: "github-tags",
+    },
+  ],
+
+  packageRules: [
+    {
+      description: "Update cert-manager chart and CRDs together",
+      matchPackageNames: ["cert-manager", "cert-manager/cert-manager"],
+      groupName: "cert-manager",
+    },
+    {
+      description: "Talos and Cilium must be upgraded one minor at a time",
+      matchPackageNames: ["siderolabs/talos", "cilium"],
+      separateMultipleMinor: true,
+    },
+    {
+      description: "Flux operator and distribution updated together",
+      matchPackageNames: ["fluxcd/flux2", "ghcr.io/controlplaneio-fluxcd/charts/flux-operator"],
+      groupName: "flux",
+    },
+    {
+      description: "Terraform-managed components need a manual terraform apply",
+      matchFileNames: ["terraform/**"],
+      addLabels: ["terraform-apply"],
+    },
+    {
+      description: "Terraform providers grouped into one PR",
+      matchManagers: ["terraform"],
+      matchDepTypes: ["required_provider"],
+      groupName: "terraform providers",
+    },
+  ],
+}

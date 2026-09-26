@@ -7,6 +7,13 @@
   current-context; removed it and set `admin@home-ops`. talosconfig endpoint set to
   192.168.178.171. Context `admin@home-ops` also merged into ~/.kube/config.
 
+- k8s-monitoring kept disabled (reverted the re-enable, HelmRelease pruned)
+- Added Renovate (.github/renovate.json5). Terraform versions (Talos, Cilium, Flux operator,
+  Flux distribution) tracked via `# renovate:` annotations in terraform/variables.tf; those
+  PRs get the `terraform-apply` label and need a manual apply after merge.
+- Flux pinned: operator chart 0.46.0, distribution v2.8.5 (was unpinned / `2.x`)
+- TODO: install the Renovate GitHub App on mbaykara/home-ops-px
+
 ## Session: 2026-04-08
 
 ### What was done
