@@ -12,7 +12,18 @@
   Flux distribution) tracked via `# renovate:` annotations in terraform/variables.tf; those
   PRs get the `terraform-apply` label and need a manual apply after merge.
 - Flux pinned: operator chart 0.46.0, distribution v2.8.5 (was unpinned / `2.x`)
-- TODO: install the Renovate GitHub App on mbaykara/home-ops-px
+- Renovate app installed; first batch of PRs merged 2026-09-26
+
+## Session: 2026-09-27
+- Migrated Terraform to helm provider v3 syntax (`set = [...]`, `kubernetes = {}`)
+- talosconfig endpoint now set in Terraform (talos_client_configuration.endpoints)
+- terraform apply done: Flux operator 0.60.0, Flux v2.9.5, kubelet node label m720q
+- Etcd snapshot before apply: _out/etcd-snapshots/etcd-snapshot-20260927-001127.db
+- NOT upgraded: terraform.tfvars (local, gitignored) pins talos_version=v1.12.1 and
+  cilium_version=1.17.2, overriding the Renovate-bumped defaults. Running: Talos v1.12.1,
+  Cilium 1.17.2. Cilium needs one-minor-at-a-time (1.18 -> 1.19 -> 1.20); Talos needs
+  `talosctl upgrade` (1.12.12 -> 1.13.10), changing the var alone does not upgrade the node.
+- Open: PR #17 (terraform providers, talos provider 0.12)
 
 ## Session: 2026-04-08
 
