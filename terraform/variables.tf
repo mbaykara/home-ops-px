@@ -60,7 +60,7 @@ variable "network_gateway" {
 # renovate: datasource=helm depName=cilium registryUrl=https://helm.cilium.io/
 variable "cilium_version" {
   type        = string
-  default     = "1.17.18"
+  default     = "1.19.8"
   description = "Cilium Helm chart version"
 }
 
