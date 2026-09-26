@@ -69,14 +69,14 @@ variable "cilium_version" {
 # renovate: datasource=docker depName=ghcr.io/controlplaneio-fluxcd/charts/flux-operator
 variable "flux_operator_version" {
   type        = string
-  default     = "0.46.0"
+  default     = "0.60.0"
   description = "Flux Operator Helm chart version"
 }
 
 # renovate: datasource=github-releases depName=fluxcd/flux2
 variable "flux_version" {
   type        = string
-  default     = "v2.8.5"
+  default     = "v2.9.5"
   description = "Flux distribution version managed by the FluxInstance"
 }
 
