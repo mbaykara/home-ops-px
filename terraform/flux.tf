@@ -7,6 +7,7 @@ resource "helm_release" "flux_operator" {
   namespace        = "flux-system"
   create_namespace = true
   chart            = "oci://ghcr.io/controlplaneio-fluxcd/charts/flux-operator"
+  version          = var.flux_operator_version
 
   wait          = true
   wait_for_jobs = true
@@ -30,7 +31,7 @@ resource "kubectl_manifest" "flux_instance" {
     }
     spec = {
       distribution = {
-        version  = "2.x"
+        version  = trimprefix(var.flux_version, "v")
         registry = "ghcr.io/fluxcd"
       }
       components = [

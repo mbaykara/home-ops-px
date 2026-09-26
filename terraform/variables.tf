@@ -6,6 +6,7 @@ variable "cluster_name" {
   description = "Name of the Talos cluster"
 }
 
+# renovate: datasource=github-releases depName=siderolabs/talos
 variable "talos_version" {
   type        = string
   default     = "v1.12.1"
@@ -56,6 +57,7 @@ variable "network_gateway" {
 
 # --- Cilium ---
 
+# renovate: datasource=helm depName=cilium registryUrl=https://helm.cilium.io/
 variable "cilium_version" {
   type        = string
   default     = "1.17.2"
@@ -63,6 +65,20 @@ variable "cilium_version" {
 }
 
 # --- Flux CD ---
+
+# renovate: datasource=docker depName=ghcr.io/controlplaneio-fluxcd/charts/flux-operator
+variable "flux_operator_version" {
+  type        = string
+  default     = "0.46.0"
+  description = "Flux Operator Helm chart version"
+}
+
+# renovate: datasource=github-releases depName=fluxcd/flux2
+variable "flux_version" {
+  type        = string
+  default     = "v2.8.5"
+  description = "Flux distribution version managed by the FluxInstance"
+}
 
 variable "github_token" {
   type        = string
