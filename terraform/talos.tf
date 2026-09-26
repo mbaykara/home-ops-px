@@ -98,6 +98,7 @@ data "talos_machine_configuration" "worker" {
 data "talos_client_configuration" "this" {
   cluster_name         = var.cluster_name
   client_configuration = talos_machine_secrets.this.client_configuration
+  endpoints            = [local.cp_endpoint_ip]
   nodes                = values(local.cp_ips)
 }
 

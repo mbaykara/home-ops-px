@@ -16,84 +16,86 @@ resource "helm_release" "cilium" {
   wait_for_jobs = true
   timeout       = 600
 
-  set {
-    name  = "ipam.mode"
-    value = "kubernetes"
-  }
+  set = [
+    {
+      name  = "ipam.mode"
+      value = "kubernetes"
+    },
 
-  set {
-    name  = "kubeProxyReplacement"
-    value = "true"
-  }
+    {
+      name  = "kubeProxyReplacement"
+      value = "true"
+    },
 
-  set {
-    name  = "k8sServiceHost"
-    value = local.cp_endpoint_ip
-  }
+    {
+      name  = "k8sServiceHost"
+      value = local.cp_endpoint_ip
+    },
 
-  set {
-    name  = "k8sServicePort"
-    value = "6443"
-  }
+    {
+      name  = "k8sServicePort"
+      value = "6443"
+    },
 
-  # Hubble observability
-  set {
-    name  = "hubble.enabled"
-    value = "true"
-  }
+    # Hubble observability
+    {
+      name  = "hubble.enabled"
+      value = "true"
+    },
 
-  set {
-    name  = "hubble.relay.enabled"
-    value = "true"
-  }
+    {
+      name  = "hubble.relay.enabled"
+      value = "true"
+    },
 
-  set {
-    name  = "hubble.ui.enabled"
-    value = "true"
-  }
+    {
+      name  = "hubble.ui.enabled"
+      value = "true"
+    },
 
-  # L2 announcements (replaces MetalLB)
-  set {
-    name  = "l2announcements.enabled"
-    value = "true"
-  }
+    # L2 announcements (replaces MetalLB)
+    {
+      name  = "l2announcements.enabled"
+      value = "true"
+    },
 
-  set {
-    name  = "externalIPs.enabled"
-    value = "true"
-  }
+    {
+      name  = "externalIPs.enabled"
+      value = "true"
+    },
 
-  # Single-node: only 1 operator replica
-  set {
-    name  = "operator.replicas"
-    value = "1"
-  }
+    # Single-node: only 1 operator replica
+    {
+      name  = "operator.replicas"
+      value = "1"
+    },
 
-  # Talos-specific: cgroup settings
-  set {
-    name  = "cgroup.autoMount.enabled"
-    value = "false"
-  }
+    # Talos-specific: cgroup settings
+    {
+      name  = "cgroup.autoMount.enabled"
+      value = "false"
+    },
 
-  set {
-    name  = "cgroup.hostRoot"
-    value = "/sys/fs/cgroup"
-  }
+    {
+      name  = "cgroup.hostRoot"
+      value = "/sys/fs/cgroup"
+    },
 
-  # Gateway API (replaces traditional Ingress controllers)
-  set {
-    name  = "gatewayAPI.enabled"
-    value = "true"
-  }
+    # Gateway API (replaces traditional Ingress controllers)
+    {
+      name  = "gatewayAPI.enabled"
+      value = "true"
+    },
 
-  # Talos-specific: security context capabilities
-  set {
-    name  = "securityContext.capabilities.ciliumAgent"
-    value = "{CHOWN,KILL,NET_ADMIN,NET_RAW,IPC_LOCK,SYS_ADMIN,SYS_RESOURCE,DAC_OVERRIDE,FOWNER,SETGID,SETUID}"
-  }
+    # Talos-specific: security context capabilities
+    {
+      name  = "securityContext.capabilities.ciliumAgent"
+      value = "{CHOWN,KILL,NET_ADMIN,NET_RAW,IPC_LOCK,SYS_ADMIN,SYS_RESOURCE,DAC_OVERRIDE,FOWNER,SETGID,SETUID}"
+    },
 
-  set {
-    name  = "securityContext.capabilities.cleanCiliumState"
-    value = "{NET_ADMIN,SYS_ADMIN,SYS_RESOURCE}"
-  }
+    {
+      name  = "securityContext.capabilities.cleanCiliumState"
+      value = "{NET_ADMIN,SYS_ADMIN,SYS_RESOURCE}"
+    },
+  ]
 }
