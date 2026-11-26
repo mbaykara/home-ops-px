@@ -9,7 +9,7 @@ variable "cluster_name" {
 # renovate: datasource=github-releases depName=siderolabs/talos
 variable "talos_version" {
   type        = string
-  default     = "v1.13.10"
+  default     = "v1.13.13"
   description = "Talos Linux version"
 }
 
